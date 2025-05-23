@@ -1,0 +1,63 @@
+using System;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using Serilog;
+
+namespace ClientApp
+{
+    class Program
+    {
+        static Socket clientSocket;
+
+        static void Main()
+        {
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.File("clientlog.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            try
+            {
+                clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                clientSocket.Connect(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 1234));
+
+                Console.WriteLine("Connected to server.");
+
+                Thread receiveThread = new Thread(ReceiveMessages);
+                receiveThread.Start();
+
+                while (true)
+                {
+                    string msgToSend = Console.ReadLine();
+                    byte[] data = Encoding.ASCII.GetBytes(msgToSend);
+                    clientSocket.Send(data);
+                    Log.Information("Sent to server: {0}", msgToSend);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Client error: {0}", ex.Message);
+            }
+        }
+
+        static void ReceiveMessages()
+        {
+            try
+            {
+                while (true)
+                {
+                    byte[] buffer = new byte[1024];
+                    int received = clientSocket.Receive(buffer);
+                    string message = Encoding.ASCII.GetString(buffer, 0, received);
+                    Console.WriteLine("Server: " + message);
+                    Log.Information("Received from server: {0}", message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Receive error: {0}", ex.Message);
+            }
+        }
+    }
+}
