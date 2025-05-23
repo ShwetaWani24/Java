@@ -2,64 +2,69 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using Serilog;
 
 namespace ServerApp
 {
     class Program
     {
-        static Socket clientSocket;
-
-        static void Main()
+        static void Main(string[] args)
         {
+            // Setup Serilog
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.File("serverlog.txt", rollingInterval: RollingInterval.Day)
                 .CreateLogger();
 
+            Log.Information("Server started.");
+
             try
             {
+                // Create server socket
                 Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                serverSocket.Bind(new IPEndPoint(IPAddress.Any, 1234));
+                IPEndPoint endPoint = new IPEndPoint(IPAddress.Any, 1234);
+                serverSocket.Bind(endPoint);
                 serverSocket.Listen(10);
 
-                Console.WriteLine("Server started. Waiting for client...");
-                clientSocket = serverSocket.Accept();
-                Console.WriteLine("Client connected.");
-
-                Thread receiveThread = new Thread(ReceiveMessages);
-                receiveThread.Start();
+                Console.WriteLine("✅ Server is running. Waiting for clients...");
+                Log.Information("Server is listening on port 1234.");
 
                 while (true)
                 {
-                    string msgToSend = Console.ReadLine();
-                    byte[] data = Encoding.ASCII.GetBytes(msgToSend);
-                    clientSocket.Send(data);
-                    Log.Information("Sent to client: {0}", msgToSend);
+                    Socket clientSocket = serverSocket.Accept();
+                    Console.WriteLine("✅ Client connected.");
+                    Log.Information("Client connected: {0}", clientSocket.RemoteEndPoint);
+
+                    try
+                    {
+                        byte[] buffer = new byte[1024];
+                        int receivedBytes = clientSocket.Receive(buffer);
+                        string receivedMsg = Encoding.ASCII.GetString(buffer, 0, receivedBytes);
+
+                        Console.WriteLine("Client: " + receivedMsg);
+                        Log.Information("Received from client: {Message}", receivedMsg);
+
+                        // Send a response back
+                        string serverResponse = "Hello from server!";
+                        byte[] responseBytes = Encoding.ASCII.GetBytes(serverResponse);
+                        clientSocket.Send(responseBytes);
+                        Log.Information("Sent to client: {Message}", serverResponse);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("Error handling client: {Error}", ex.Message);
+                    }
+                    finally
+                    {
+                        clientSocket.Shutdown(SocketShutdown.Both);
+                        clientSocket.Close();
+                        Log.Information("Client connection closed.");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("Server error: {0}", ex.Message);
-            }
-        }
-
-        static void ReceiveMessages()
-        {
-            try
-            {
-                while (true)
-                {
-                    byte[] buffer = new byte[1024];
-                    int received = clientSocket.Receive(buffer);
-                    string message = Encoding.ASCII.GetString(buffer, 0, received);
-                    Console.WriteLine("Client: " + message);
-                    Log.Information("Received from client: {0}", message);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error("Receive error: {0}", ex.Message);
+                Console.WriteLine("❌ Server error: " + ex.Message);
+                Log.Fatal("Server crashed: {Error}", ex.Message);
             }
         }
     }
