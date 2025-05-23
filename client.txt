@@ -15,9 +15,13 @@ namespace ClientApp
 
         static void Main()
         {
+            // Set up Serilog
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.File("clientlog.txt", rollingInterval: RollingInterval.Day)
                 .CreateLogger();
+
+            Console.WriteLine("Client started...");
+            Log.Information("Client application started");
 
             ConnectToServer();
 
@@ -25,7 +29,7 @@ namespace ClientApp
             {
                 if (!connected)
                 {
-                    Thread.Sleep(1000); // Avoid tight loop
+                    Thread.Sleep(1000);
                     continue;
                 }
 
@@ -36,11 +40,11 @@ namespace ClientApp
                 {
                     byte[] data = Encoding.ASCII.GetBytes(msgToSend);
                     clientSocket.Send(data);
-                    Log.Information("Sent to server: {0}", msgToSend);
+                    Log.Information("Sent to server: {Message}", msgToSend);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("Send failed: {0}", ex.Message);
+                    Log.Error("Send failed: {Error}", ex.Message);
                     connected = false;
                     Cleanup();
                     ConnectToServer();
@@ -58,18 +62,18 @@ namespace ClientApp
                     clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     clientSocket.Connect(IPAddress.Parse("127.0.0.1"), 1234);
                     connected = true;
-                    Console.WriteLine("Connected to server.");
+
+                    Console.WriteLine("✅ Connected to server.");
                     Log.Information("Connected to server.");
 
-                    // Start new receive thread
                     receiveThread = new Thread(ReceiveMessages);
                     receiveThread.IsBackground = true;
                     receiveThread.Start();
                 }
                 catch
                 {
-                    Console.WriteLine("Retrying connection in 3 seconds...");
-                    Log.Warning("Failed to connect. Retrying...");
+                    Console.WriteLine("⏳ Server not available. Retrying in 3 seconds...");
+                    Log.Warning("Connection failed. Retrying...");
                     Thread.Sleep(3000);
                 }
             }
@@ -89,13 +93,13 @@ namespace ClientApp
 
                     string message = Encoding.ASCII.GetString(buffer, 0, received);
                     Console.WriteLine("Server: " + message);
-                    Log.Information("Received from server: {0}", message);
+                    Log.Information("Received from server: {Message}", message);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Disconnected from server. Trying to reconnect...");
-                Log.Warning("Lost connection: {0}", ex.Message);
+                Console.WriteLine("❌ Disconnected from server. Retrying...");
+                Log.Warning("Disconnected from server: {Error}", ex.Message);
                 connected = false;
                 Cleanup();
                 ConnectToServer();
