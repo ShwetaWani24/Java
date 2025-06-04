@@ -1,33 +1,33 @@
-<Window x:Class="CrudWpfApp.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CRUD Operation in C# (WPF)" Height="450" Width="700">
-    <Grid Margin="10">
-        <Label Content="CRUD Operation in C# (WPF)" FontSize="16" HorizontalAlignment="Center" Grid.Row="0" Margin="0,0,0,10"/>
+foreach (DataRow row in dt.Rows)
+{
+    string name = row["Name"].ToString();
+    int age = Convert.ToInt32(row["Age"]);
+    string department = row["Department"].ToString();
 
-        <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top">
-            <Label Content="Name"/>
-            <TextBox x:Name="txtName" Width="200"/>
+    // First, check if record with same Name exists
+    string checkQuery = "SELECT COUNT(*) FROM EmployeeData WHERE Name = @Name";
+    using SqlCommand checkCmd = new SqlCommand(checkQuery, conn);
+    checkCmd.Parameters.AddWithValue("@Name", name);
+    int count = (int)checkCmd.ExecuteScalar();
 
-            <Label Content="Age"/>
-            <TextBox x:Name="txtAge" Width="200"/>
-
-            <Label Content="Gender"/>
-            <TextBox x:Name="txtGender" Width="200"/>
-
-            <Label Content="City"/>
-            <TextBox x:Name="txtCity" Width="200"/>
-        </StackPanel>
-
-        <DataGrid x:Name="dataGrid" HorizontalAlignment="Right" Width="400" Height="250"
-                  AutoGenerateColumns="True" Margin="10,10,0,10" SelectionMode="Single"
-                  VerticalAlignment="Top" />
-
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,10,0,0">
-            <Button Content="Insert Record" Width="120" Margin="5" Background="#D96666" Click="Insert_Click"/>
-            <Button Content="Update Record" Width="120" Margin="5" Background="#D96666" Click="Update_Click"/>
-            <Button Content="Delete Record" Width="120" Margin="5" Background="#D96666" Click="Delete_Click"/>
-            <Button Content="Clear Data" Width="120" Margin="5" Background="#D96666" Click="Clear_Click"/>
-        </StackPanel>
-    </Grid>
-</Window>
+    if (count > 0)
+    {
+        // Record exists: Update it
+        string updateQuery = "UPDATE EmployeeData SET Age = @Age, Department = @Department WHERE Name = @Name";
+        using SqlCommand updateCmd = new SqlCommand(updateQuery, conn);
+        updateCmd.Parameters.AddWithValue("@Name", name);
+        updateCmd.Parameters.AddWithValue("@Age", age);
+        updateCmd.Parameters.AddWithValue("@Department", department);
+        updateCmd.ExecuteNonQuery();
+    }
+    else
+    {
+        // Record does not exist: Insert it
+        string insertQuery = "INSERT INTO EmployeeData (Name, Age, Department) VALUES (@Name, @Age, @Department)";
+        using SqlCommand insertCmd = new SqlCommand(insertQuery, conn);
+        insertCmd.Parameters.AddWithValue("@Name", name);
+        insertCmd.Parameters.AddWithValue("@Age", age);
+        insertCmd.Parameters.AddWithValue("@Department", department);
+        insertCmd.ExecuteNonQuery();
+    }
+}
